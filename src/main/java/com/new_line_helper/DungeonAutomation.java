@@ -56,6 +56,8 @@ public final class DungeonAutomation {
     public static int killCount = 0;
     public static boolean rewardSeen = false;
     public static boolean leaveSent = false;
+    /** 聊天里“点击立即离开副本”的 RUN_COMMAND 值，到达 LEAVE 阶段再执行。 */
+    public static String leaveCommand = null;
     public static boolean busySeen = false;
     public static boolean launchSeen = false;
     public static boolean frequentSeen = false;
@@ -81,43 +83,25 @@ public final class DungeonAutomation {
         killCount = 0;
         rewardSeen = false;
         leaveSent = false;
+        leaveCommand = null;
         busySeen = false;
         launchSeen = false;
         frequentSeen = false;
         NewLineHelperClient.LOG.info("[auto] reset -> FIND_SIGN");
-        HudOverlay.setState(describeState(State.FIND_SIGN));
     }
 
     private static void setState(State s) {
         if (s != state) {
             NewLineHelperClient.LOG.info("[auto] state {} -> {}", state, s);
-            HudOverlay.setState(describeState(s));
         }
         state = s;
         stateStartTime = System.currentTimeMillis();
     }
 
-    private static String describeState(State s) {
-        return switch (s) {
-            case FIND_SIGN -> "寻找副本告示牌...";
-            case SIGN_MENU -> "打开副本挑战菜单";
-            case WAIT_BUSY -> "副本繁忙，等待重试";
-            case CHALLENGE_FLOOR -> "选择楼层：" + HelperConfig.BTN_FLOOR;
-            case CHALLENGE_DIFFICULTY -> "选择难度：" + HelperConfig.difficulty();
-            case CHALLENGE_ENTER -> "点击进入副本";
-            case ENTERING -> "等待进入副本结果...";
-            case WAIT_RETRY -> "进入失败，等待重试";
-            case FLY_TO_A -> "飞行前往 A 点";
-            case FLY_TO_B -> "飞行前往 B 点";
-            case FLY_TO_C -> "飞行前往 C 点";
-            case LEAVE -> "等待离开副本";
-            case FLY_OFF -> "本轮结束，准备下一轮";
-        };
-    }
-
-    /** 只有到 C 点/离开阶段才接受奖励和离开链接，避免上一轮的迟到消息串到下一轮。 */
-    public static boolean isAtRewardPhase() {
-        return state == State.FLY_TO_C || state == State.LEAVE;
+    /** 副本进行中（A/B/C 飞行或等待离开）时，才接受奖励和离开链接。 */
+    public static boolean isInRun() {
+        return state == State.FLY_TO_A || state == State.FLY_TO_B
+                || state == State.FLY_TO_C || state == State.LEAVE;
     }
 
     private static boolean isFlyingState() {
@@ -169,6 +153,7 @@ public final class DungeonAutomation {
                     signMissCount = 0;
                     rewardSeen = false;
                     leaveSent = false;
+                    leaveCommand = null;
                     killCount = 0;
                     launchSeen = false;
                     frequentSeen = false;
@@ -177,7 +162,6 @@ public final class DungeonAutomation {
                     setState(State.FLY_TO_A);
                     break;
                 }
-                HudOverlay.setState("未找到告示牌 " + signMissCount + "/" + HelperConfig.SIGN_MISS_LIMIT);
                 break;
             }
             case SIGN_MENU: {
@@ -249,6 +233,7 @@ public final class DungeonAutomation {
                         NewLineHelperClient.LOG.info("[auto] enter success, flying to A");
                         rewardSeen = false;
                         leaveSent = false;
+                        leaveCommand = null;
                         killCount = 0;
                         setState(State.FLY_TO_A);
                     } else {
@@ -298,9 +283,11 @@ public final class DungeonAutomation {
                 break;
             }
             case FLY_TO_C: {
-                if (rewardSeen || leaveSent || now - stateStartTime >= HelperConfig.REWARD_TIMEOUT) {
-                    NewLineHelperClient.LOG.info("[auto] FLY_TO_C exit: reward={} leave={} timeout={}",
-                            rewardSeen, leaveSent, now - stateStartTime >= HelperConfig.REWARD_TIMEOUT);
+                if (rewardSeen || leaveCommand != null || leaveSent
+                        || now - stateStartTime >= HelperConfig.REWARD_TIMEOUT) {
+                    NewLineHelperClient.LOG.info("[auto] FLY_TO_C exit: reward={} leaveLink={} timeout={}",
+                            rewardSeen, leaveCommand != null,
+                            now - stateStartTime >= HelperConfig.REWARD_TIMEOUT);
                     stopFlight(client);
                     setState(State.LEAVE);
                 } else if (!near(client, HelperConfig.C_X, HelperConfig.C_Y, HelperConfig.C_Z)) {
@@ -311,8 +298,8 @@ public final class DungeonAutomation {
                 break;
             }
             case LEAVE: {
-                if (leaveSent && leaveSentTime == 0L) {
-                    leaveSentTime = now;
+                if (leaveCommand != null && !leaveSent) {
+                    sendLeaveCommand(client);
                 }
                 boolean waited = leaveSent && (now - leaveSentTime >= HelperConfig.LEAVE_WAIT);
                 if (waited || (!leaveSent && now - stateStartTime >= HelperConfig.LEAVE_TIMEOUT)) {
@@ -442,6 +429,26 @@ public final class DungeonAutomation {
     /** 收尾/终止时关飞行；若当时还在空中，下一轮落地后会在 FIND_SIGN 里补关。 */
     public static void turnFlightOff(MinecraftClient client) {
         setFlight(client, false);
+    }
+
+    /**
+     * 执行聊天里“点击立即离开副本”的 RUN_COMMAND。
+     * 1.21.1 的 sendChatCommand 要的是**不带**前导 "/" 的命令
+     * （原版 ChatScreen 就是 sendChatCommand(text.substring(1))），
+     * 直接把 "/xxx" 丢进去会被 Brigadier 解析失败，表现就是“点了没反应”。
+     */
+    private static void sendLeaveCommand(MinecraftClient client) {
+        String command = leaveCommand == null ? "" : leaveCommand.trim();
+        while (command.startsWith("/")) {
+            command = command.substring(1);
+        }
+        if (command.isEmpty() || client.player == null || client.getNetworkHandler() == null) {
+            return;
+        }
+        client.player.networkHandler.sendChatCommand(command);
+        leaveSent = true;
+        leaveSentTime = System.currentTimeMillis();
+        NewLineHelperClient.LOG.info("[auto] sent leave command: /{}", command);
     }
 
     private static void setKey(KeyBinding kb, boolean pressed) {

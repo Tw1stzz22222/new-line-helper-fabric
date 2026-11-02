@@ -8,7 +8,7 @@
 ## 状态
 
 - [x] 工程骨架（Loom / yarn 1.21.1 / Java 21 / Fabric Loader 0.19.3）
-- [x] 状态机、飞行、聊天监听、HUD、菜单全部移植
+- [x] 状态机、飞行、聊天监听、菜单全部移植（右上角 HUD 已按需求移除）
 - [ ] 服务器文案适配：**新服如果改过文案/菜单结构，需要按 `HelperConfig` 调整**
 - [ ] 进游戏实测（需要 1.21.1 服务器 + 告示牌/菜单环境）
 
@@ -41,7 +41,6 @@ src/main/java/com/new_line_helper/
   DungeonAutomation.java     状态机核心
   ChatListener.java          聊天关键词 → 状态
   ClientEventHandler.java    按键 + 每 tick 驱动
-  HudOverlay.java            右上角状态框 / LV 框
   KeyBindings.java           按键注册
   ModState.java              总开关
   gui/GuiMenu.java           N 键菜单

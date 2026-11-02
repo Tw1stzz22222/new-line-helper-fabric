@@ -33,7 +33,6 @@ public final class HelperConfig {
     public static final String KEY_BUSY = "同一时间";
     public static final String KEY_LAUNCH = "已获得启动名额";
     public static final String KEY_FREQUENT = "同一时刻地牢创建频繁";
-    public static final String KEY_LV = "LV";
 
     // ===== 航点坐标 =====
     public static final int A_X = -45, A_Y = 14, A_Z = 10;

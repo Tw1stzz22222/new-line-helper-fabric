@@ -1,7 +1,6 @@
 package com.new_line_helper;
 
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.ClickEvent;
 import net.minecraft.text.Text;
 
@@ -22,11 +21,6 @@ public final class ChatListener {
     private static void onChat(Text message) {
         String msg = message.getString();
 
-        // 玩家信息行（含 LV）→ HUD，聊天框里保留
-        if (msg.contains(HelperConfig.KEY_LV)) {
-            HudOverlay.addLv(message);
-        }
-
         if (!ModState.running) {
             return;
         }
@@ -35,7 +29,7 @@ public final class ChatListener {
             DungeonAutomation.killCount++;
             NewLineHelperClient.LOG.info("[auto] kill (total {})", DungeonAutomation.killCount);
         }
-        if (msg.contains(HelperConfig.KEY_REWARD) && DungeonAutomation.isAtRewardPhase()) {
+        if (msg.contains(HelperConfig.KEY_REWARD) && DungeonAutomation.isInRun()) {
             DungeonAutomation.rewardSeen = true;
             NewLineHelperClient.LOG.info("[auto] reward detected");
         }
@@ -54,13 +48,10 @@ public final class ChatListener {
 
         ClickEvent leave = findClickEvent(message, HelperConfig.KEY_LEAVE);
         if (leave != null && leave.getAction() == ClickEvent.Action.RUN_COMMAND
-                && DungeonAutomation.isAtRewardPhase()) {
-            MinecraftClient client = MinecraftClient.getInstance();
-            if (client.player != null && client.getNetworkHandler() != null) {
-                NewLineHelperClient.LOG.info("[auto] clicking leave link: {}", leave.getValue());
-                client.player.networkHandler.sendChatCommand(leave.getValue());
-                DungeonAutomation.leaveSent = true;
-            }
+                && DungeonAutomation.isInRun()) {
+            // 先记下来，到 LEAVE 阶段再发；值里通常带前导 "/"，发送时会去掉
+            DungeonAutomation.leaveCommand = leave.getValue();
+            NewLineHelperClient.LOG.info("[auto] leave link captured: {}", leave.getValue());
         }
     }
 
