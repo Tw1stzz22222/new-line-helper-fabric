@@ -64,6 +64,9 @@ public final class DungeonAutomation {
     private static boolean lastFlying = false;
     private static String lastDumpTarget = null;
     private static long lastLoreScan = 0L;
+    private static String lastGoto = null;
+    private static long lastGotoTime = 0L;
+    private static boolean flightOn = false;
 
     public static void reset() {
         state = State.FIND_SIGN;
@@ -73,6 +76,8 @@ public final class DungeonAutomation {
         arrivedTime = 0L;
         lastSignScanTime = 0L;
         signMissCount = 0;
+        lastGoto = null;
+        lastGotoTime = 0L;
         killCount = 0;
         rewardSeen = false;
         leaveSent = false;
@@ -137,6 +142,10 @@ public final class DungeonAutomation {
                 if (client.currentScreen != null) {
                     setState(State.SIGN_MENU);
                     break;
+                }
+                // 上一轮结束时若还在空中，落地后再补关一次飞行
+                if (flightOn && client.player.isOnGround()) {
+                    turnFlightOff(client);
                 }
                 if (now - lastSignScanTime < HelperConfig.SIGN_SCAN_INTERVAL) {
                     break;
@@ -260,7 +269,7 @@ public final class DungeonAutomation {
             }
             case FLY_TO_A: {
                 if (near(client, HelperConfig.A_X, HelperConfig.A_Y, HelperConfig.A_Z)) {
-                    releaseFlightKeys(client);
+                    stopFlight(client);
                     if (arrivedTime == 0L) {
                         arrivedTime = now;
                     }
@@ -269,13 +278,13 @@ public final class DungeonAutomation {
                         setState(State.FLY_TO_B);
                     }
                 } else {
-                    flyToward(client, HelperConfig.A_X, HelperConfig.A_Y, HelperConfig.A_Z);
+                    flightTo(client, HelperConfig.A_X, HelperConfig.A_Y, HelperConfig.A_Z);
                 }
                 break;
             }
             case FLY_TO_B: {
                 if (near(client, HelperConfig.B_X, HelperConfig.B_Y, HelperConfig.B_Z)) {
-                    releaseFlightKeys(client);
+                    stopFlight(client);
                     if (arrivedTime == 0L) {
                         arrivedTime = now;
                     }
@@ -284,7 +293,7 @@ public final class DungeonAutomation {
                         setState(State.FLY_TO_C);
                     }
                 } else {
-                    flyToward(client, HelperConfig.B_X, HelperConfig.B_Y, HelperConfig.B_Z);
+                    flightTo(client, HelperConfig.B_X, HelperConfig.B_Y, HelperConfig.B_Z);
                 }
                 break;
             }
@@ -292,12 +301,12 @@ public final class DungeonAutomation {
                 if (rewardSeen || leaveSent || now - stateStartTime >= HelperConfig.REWARD_TIMEOUT) {
                     NewLineHelperClient.LOG.info("[auto] FLY_TO_C exit: reward={} leave={} timeout={}",
                             rewardSeen, leaveSent, now - stateStartTime >= HelperConfig.REWARD_TIMEOUT);
-                    releaseFlightKeys(client);
+                    stopFlight(client);
                     setState(State.LEAVE);
                 } else if (!near(client, HelperConfig.C_X, HelperConfig.C_Y, HelperConfig.C_Z)) {
-                    flyToward(client, HelperConfig.C_X, HelperConfig.C_Y, HelperConfig.C_Z);
+                    flightTo(client, HelperConfig.C_X, HelperConfig.C_Y, HelperConfig.C_Z);
                 } else {
-                    releaseFlightKeys(client);
+                    stopFlight(client);
                 }
                 break;
             }
@@ -312,7 +321,8 @@ public final class DungeonAutomation {
                 break;
             }
             case FLY_OFF: {
-                releaseFlightKeys(client);
+                stopFlight(client);
+                turnFlightOff(client);
                 reset();
                 break;
             }
@@ -371,6 +381,67 @@ public final class DungeonAutomation {
         setKey(client.options.forwardKey, false);
         setKey(client.options.jumpKey, false);
         setKey(client.options.sneakKey, false);
+    }
+
+    // ------------------------------------------------------------------
+    // 飞行：优先用 Wurst 的 .t Flight / .goto，没装 Wurst 时退回按键飞行
+    // ------------------------------------------------------------------
+
+    private static boolean useWurstFlight() {
+        return HelperConfig.USE_WURST && WurstBridge.isAvailable();
+    }
+
+    private static void flightTo(MinecraftClient client, int x, int y, int z) {
+        if (useWurstFlight()) {
+            setFlight(client, true);
+            gotoLeg(client, x, y, z);
+        } else {
+            flyToward(client, x, y, z);
+        }
+    }
+
+    private static void stopFlight(MinecraftClient client) {
+        if (lastGoto != null && useWurstFlight()) {
+            WurstBridge.run(HelperConfig.CMD_GOTO_STOP);
+            lastGoto = null;
+        }
+        releaseFlightKeys(client);
+    }
+
+    private static void gotoLeg(MinecraftClient client, int x, int y, int z) {
+        String key = x + "," + y + "," + z;
+        long now = System.currentTimeMillis();
+        if (key.equals(lastGoto) && now - lastGotoTime < HelperConfig.GOTO_RETRY_MS) {
+            return;
+        }
+        lastGoto = key;
+        lastGotoTime = now;
+        String command = String.format(HelperConfig.CMD_GOTO_FORMAT, x, y, z);
+        if (WurstBridge.run(command)) {
+            NewLineHelperClient.LOG.info("[auto] wurst .{}", command);
+        } else {
+            NewLineHelperClient.LOG.warn("[auto] wurst command rejected: .{}", command);
+        }
+    }
+
+    /**
+     * 开关 Wurst 的 Flight。注意 Wurst 的 Flight 每 tick 会把 abilities.flying 置回 false，
+     * 所以这里只信自己的 flightOn 标记，不看玩家能力。
+     */
+    private static void setFlight(MinecraftClient client, boolean on) {
+        if (flightOn == on || !useWurstFlight()) {
+            return;
+        }
+        String command = on ? HelperConfig.CMD_FLIGHT_ON : HelperConfig.CMD_FLIGHT_OFF;
+        if (WurstBridge.run(command)) {
+            flightOn = on;
+            NewLineHelperClient.LOG.info("[auto] wurst flight {}", on ? "on" : "off");
+        }
+    }
+
+    /** 收尾/终止时关飞行；若当时还在空中，下一轮落地后会在 FIND_SIGN 里补关。 */
+    public static void turnFlightOff(MinecraftClient client) {
+        setFlight(client, false);
     }
 
     private static void setKey(KeyBinding kb, boolean pressed) {

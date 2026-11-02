@@ -58,8 +58,16 @@ public final class HelperConfig {
     public static final int SIGN_RADIUS = 6;             // 告示牌水平扫描半径
     public static final double ARRIVE_DIST = 2.0;        // 到点判定距离
 
-    // ===== 容器菜单（物品形式）=====
-    /** 是否允许点击玩家自己背包区域的格子。菜单物品通常在容器区，默认只先找容器区，兜底再找背包。 */
+    // ===== 飞行：Wurst 命令（Wurst 未安装时自动回退到按键飞行）=====
+    public static final boolean USE_WURST = true;
+    public static final String CMD_FLIGHT_ON = "t Flight on";
+    public static final String CMD_FLIGHT_OFF = "t Flight off";
+    public static final String CMD_GOTO_FORMAT = "goto %d %d %d";
+    public static final String CMD_GOTO_STOP = "goto";
+    /** 一段时间还没到点就重发 .goto（Wurst 寻路失败/卡住时自愈）。 */
+    public static final long GOTO_RETRY_MS = 15000L;
+
+    // ===== 容器菜单（物品形式）=====    /** 是否允许点击玩家自己背包区域的格子。菜单物品通常在容器区，默认只先找容器区，兜底再找背包。 */
     public static final boolean CLICK_PLAYER_SLOTS = true;
     /** 物品名字对不上时，是否再匹配物品 lore（很多菜单把选项名写在 lore 里）。 */
     public static final boolean MATCH_LORE = true;

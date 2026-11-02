@@ -36,6 +36,7 @@ public final class ClientEventHandler {
     public static void terminate(MinecraftClient client) {
         ModState.terminate();
         DungeonAutomation.releaseFlightKeys(client);
+        DungeonAutomation.turnFlightOff(client);
         if (client.currentScreen != null) {
             client.setScreen(null);
         }
