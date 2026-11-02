@@ -19,7 +19,7 @@ public final class KeyBindings {
 
     public static void register() {
         OPEN_MENU = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.new_line_helper.menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_M, CATEGORY));
+                "key.new_line_helper.menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_N, CATEGORY));
         TERMINATE = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.new_line_helper.terminate", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_EQUAL, CATEGORY));
         DEBUG = KeyBindingHelper.registerKeyBinding(new KeyBinding(

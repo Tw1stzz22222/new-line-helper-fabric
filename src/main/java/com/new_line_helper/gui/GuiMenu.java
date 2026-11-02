@@ -11,7 +11,7 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import org.lwjgl.glfw.GLFW;
 
-/** M 键打开的菜单：切难度 + 启用。 */
+/** N 键打开的菜单：切难度 + 启用。 */
 public class GuiMenu extends Screen {
 
     private static final int PANEL_W = 260;

@@ -26,7 +26,7 @@
 
 | 按键 | 作用 |
 |---|---|
-| `M` | 打开菜单（切难度 / 启用自动化） |
+| `N` | 打开菜单（切难度 / 启用自动化） |
 | `=` | 终止自动化 |
 | `` ` `` | 把当前界面的按钮和槽位输出到聊天栏和日志 |
 
@@ -44,7 +44,7 @@ src/main/java/com/new_line_helper/
   HudOverlay.java            右上角状态框 / LV 框
   KeyBindings.java           按键注册
   ModState.java              总开关
-  gui/GuiMenu.java           M 键菜单
+  gui/GuiMenu.java           N 键菜单
 ```
 
 ## 与 1.12.2 版的关键差异

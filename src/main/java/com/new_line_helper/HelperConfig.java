@@ -14,7 +14,7 @@ public final class HelperConfig {
     public static final String BTN_FLOOR = "第十五层";
     public static final String BTN_ENTER = "进入副本";
 
-    // ===== 难度选项：M 菜单里循环切换，数组顺序就是切换顺序 =====
+    // ===== 难度选项：N 菜单里循环切换，数组顺序就是切换顺序 =====
     private static final String[] DIFFICULTIES = {"湮灭", "简单"};
     private static int difficultyIndex = 0;
 
