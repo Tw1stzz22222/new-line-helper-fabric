@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "new_line_helper",
+  "version": "${version}",
+  "name": "New Line Helper",
+  "description": "新一线 15c 副本自动化的 1.21.1 Fabric 移植版（客户端）。",
+  "authors": [
+    "Tw1stzz22222"
+  ],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.new_line_helper.NewLineHelperClient"
+    ]
+  },
+  "mixins": [],
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "fabric-api": "*",
+    "minecraft": "~1.21.1",
+    "java": ">=21"
+  }
+}

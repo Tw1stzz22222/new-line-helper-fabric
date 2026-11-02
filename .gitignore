@@ -1,0 +1,29 @@
+# Gradle
+.gradle/
+build/
+bin/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+*.launch
+
+# Minecraft run directories
+run/
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local backup files
+*.bak*
+
+# 服务器端 mod（龙核等本地运行依赖，不提交）
+libs/
