@@ -57,4 +57,12 @@ public final class HelperConfig {
     // ===== 扫描 / 到达参数 =====
     public static final int SIGN_RADIUS = 6;             // 告示牌水平扫描半径
     public static final double ARRIVE_DIST = 2.0;        // 到点判定距离
+
+    // ===== 容器菜单（物品形式）=====
+    /** 是否允许点击玩家自己背包区域的格子。菜单物品通常在容器区，默认只先找容器区，兜底再找背包。 */
+    public static final boolean CLICK_PLAYER_SLOTS = true;
+    /** 物品名字对不上时，是否再匹配物品 lore（很多菜单把选项名写在 lore 里）。 */
+    public static final boolean MATCH_LORE = true;
+    /** lore 匹配的限流间隔，避免每 tick 拼 tooltip。 */
+    public static final long LORE_SCAN_INTERVAL = 250L;
 }

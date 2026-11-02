@@ -49,6 +49,6 @@ src/main/java/com/new_line_helper/
 
 ## 与 1.12.2 版的关键差异
 
-- 不再有 SRG 混淆反射：按钮直接遍历 `Screen.children()`，槽位走 `HandledScreen.getScreenHandler()`
+- 不再有 SRG 混淆反射：按钮直接遍历 `Screen.children()`；**菜单是容器物品时**按槽位点击，匹配顺序为「容器区物品名 → 玩家背包物品名（可关）→ 物品 lore（限流）」
 - 飞行仍然是「假飞行」：改 yaw + `KeyBinding.setKeyPressed`，不会自己开飞行
 - 奖励/离开消息仍然只在 C 点/离开阶段接受（防止上一轮消息串场）

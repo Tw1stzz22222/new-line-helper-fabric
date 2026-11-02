@@ -9,17 +9,22 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.tooltip.TooltipType;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
 import net.minecraft.text.Text;
+import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
+
+import java.util.List;
 
 /**
  * 15c 副本自动化的状态机。
@@ -58,6 +63,7 @@ public final class DungeonAutomation {
     private static boolean flyingKnown = false;
     private static boolean lastFlying = false;
     private static String lastDumpTarget = null;
+    private static long lastLoreScan = 0L;
 
     public static void reset() {
         state = State.FIND_SIGN;
@@ -466,15 +472,60 @@ public final class DungeonAutomation {
             return false;
         }
         ScreenHandler handler = handled.getScreenHandler();
+
+        // 先找容器区，避免误点自己背包里的同名物品；找不到再按配置找背包
+        Slot slot = findSlot(handler, text, client, false, false);
+        if (slot == null && HelperConfig.CLICK_PLAYER_SLOTS) {
+            slot = findSlot(handler, text, client, false, true);
+        }
+        // 名字对不上时再匹配 lore（限流，避免每 tick 拼 tooltip）
+        if (slot == null && HelperConfig.MATCH_LORE) {
+            long now = System.currentTimeMillis();
+            if (now - lastLoreScan >= HelperConfig.LORE_SCAN_INTERVAL) {
+                lastLoreScan = now;
+                slot = findSlot(handler, text, client, true, false);
+                if (slot == null && HelperConfig.CLICK_PLAYER_SLOTS) {
+                    slot = findSlot(handler, text, client, true, true);
+                }
+            }
+        }
+        if (slot == null) {
+            return false;
+        }
+
+        NewLineHelperClient.LOG.info("[auto] clicking slot {} '{}' for '{}'",
+                slot.id, slot.getStack().getName().getString(), text);
+        client.interactionManager.clickSlot(handler.syncId, slot.id, 0, SlotActionType.PICKUP, client.player);
+        return true;
+    }
+
+    private static Slot findSlot(ScreenHandler handler, String text, MinecraftClient client,
+                                 boolean useLore, boolean playerSlots) {
         for (Slot slot : handler.slots) {
+            boolean isPlayerSlot = slot.inventory instanceof PlayerInventory;
+            if (isPlayerSlot != playerSlots) {
+                continue;
+            }
             ItemStack stack = slot.getStack();
             if (stack.isEmpty()) {
                 continue;
             }
-            if (stack.getName().getString().contains(text)) {
-                NewLineHelperClient.LOG.info("[auto] clicking slot {} '{}' for '{}'",
-                        slot.id, stack.getName().getString(), text);
-                client.interactionManager.clickSlot(handler.syncId, slot.id, 0, SlotActionType.PICKUP, client.player);
+            if (stackMatches(stack, text, client, useLore)) {
+                return slot;
+            }
+        }
+        return null;
+    }
+
+    private static boolean stackMatches(ItemStack stack, String text, MinecraftClient client, boolean useLore) {
+        if (stack.getName().getString().contains(text)) {
+            return true;
+        }
+        if (!useLore) {
+            return false;
+        }
+        for (Text line : stack.getTooltip(Item.TooltipContext.DEFAULT, client.player, TooltipType.BASIC)) {
+            if (line.getString().contains(text)) {
                 return true;
             }
         }
@@ -500,8 +551,13 @@ public final class DungeonAutomation {
         if (screen instanceof HandledScreen<?> handled) {
             for (Slot slot : handled.getScreenHandler().slots) {
                 ItemStack stack = slot.getStack();
-                if (!stack.isEmpty()) {
-                    NewLineHelperClient.LOG.warn("[auto]   slot {} '{}'", slot.id, stack.getName().getString());
+                if (stack.isEmpty()) {
+                    continue;
+                }
+                NewLineHelperClient.LOG.warn("[auto]   slot {} '{}'", slot.id, stack.getName().getString());
+                List<Text> tip = stack.getTooltip(Item.TooltipContext.DEFAULT, client.player, TooltipType.BASIC);
+                for (int i = 1; i < tip.size(); i++) {
+                    NewLineHelperClient.LOG.warn("[auto]     lore: '{}'", tip.get(i).getString());
                 }
             }
         }
